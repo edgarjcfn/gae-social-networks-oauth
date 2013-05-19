@@ -1,1 +1,16 @@
 *.pyc
+
+app.yaml
+config.py
+
+# hidden files
+.DS_Store
+
+# file patterns
+*.dylib
+*.la
+*.lo
+*.o
+*.pyc
+*.pyo
+*.so
