@@ -1,4 +1,4 @@
-application: social-networks-oauth
+application: stunning-net-216
 version: 1
 runtime: python27
 api_version: 1
@@ -12,5 +12,7 @@ libraries:
  - name: webapp2
    version: latest
  - name: jinja2
+   version: latest
+ - name: django
    version: latest
 

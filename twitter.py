@@ -1,27 +1,25 @@
 import webapp2
 import urllib
-
+from google.appengine.api.urlfetch import fetch as webfetch, GET, POST
 
 REQUEST_TOKEN_URL = 'http://www.twitter.com/oauth/request_token'
+
+def web_get(url, params=None):
+    if params is not None:
+        params_str = ""
+        for key,value in params.items():
+            params_str += "{0}={1}".format(key, value)
+        url = "{0}?{1}".format(url, params_str)
+
+    return webfetch(url, None, GET)
+
+def web_post(url, params=None):
+    params = urllib.urlencode(params)
+    return webfetch(url=url, payload=params, method=POST)
+
 class Twitter(webapp2.RequestHandler):
 
-    request_token = None;
+    def get(self, action=None):
 
-    def get(self):
-        if not self.has_request_token():
-        # Initial state: obtain request token
-            self.obtain_request_token()
-        else:
-        # Has request token
-            self.redirect_to_auth_page()
-
-    def has_request_token(self):
-        return self.request_token != None
-
-    def obtain_request_token(self):
-        request_params = {
-            'oauth_callback' : webapp2.uri_for('twitter', _full=True),
-        }
-        self.redirect("%s?%s" % (REQUEST_TOKEN_URL, urllib.urlencode(request_params)))
-    def redirect_to_auth_page(self):
-        self.response.write('Redirecting to auth page!')
+        for key,value in self.request.params.items():
+            self.response.write("{0}={1}".format(key,value))
