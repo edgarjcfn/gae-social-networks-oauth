@@ -8,8 +8,13 @@ from urllib import urlencode, quote as urlquote
 
 from google.appengine.api.urlfetch import fetch as webfetch, GET, POST
 
-REQUEST_TOKEN_URL = 'http://www.twitter.com/oauth/request_token'
-APP_SECRET = "VCOp4U4kKtd1EovxksktiPnfaYpSPhogpQTshHDYn4"
+REQUEST_TOKEN_URL = 'https://api.twitter.com/oauth/request_token'
+# REQUEST_TOKEN_URL = 'http://localhost:8080/auth/twitter'
+
+# CONSUMER_SECRET = "VCOp4U4kKtd1EovxksktiPnfaYpSPhogpQTshHDYn4"
+CONSUMER_SECRET = "MCD8BKwGdgPHvAuvgvz4EQpqDAtx89grbuNMRd7Eh98"
+
+CONSUMER_KEY = "wxLnvuFqFfrqaYfVx3RKdg"
 
 # ==============
 # Helper methods
@@ -25,7 +30,7 @@ def web_get(url, params=None):
 
 def web_post(url, params=None, headers={}):
     params = urllib.urlencode(params)
-    return webfetch(url=url, payload=params, method=POST, headers=headers)
+    return webfetch(url=url, payload=params, method=POST, headers=headers, validate_certificate=False)
 
 
 def _is(action, expected):
@@ -34,7 +39,12 @@ def _is(action, expected):
 def encode(text):
     return urlquote(str(text), '')
 
-def sign_request(header_data, post_data, url):
+def to_querystring(params):
+    return '&'.join(
+        '{0}={1}'.format(encode(i), encode(params[i])) for i in sorted(params)
+        )
+
+def build_signature_string(header_data, post_data, url):
     all_data = {}
 
     for key, value in header_data.items():
@@ -42,13 +52,25 @@ def sign_request(header_data, post_data, url):
     for key, value in post_data.items():
         all_data[key] = value
 
+    encoded_data = to_querystring(all_data)
+
     message = '&'.join(map(encode, [
-            "POST", url, '&'.join(
-                '%s=%s' % (encode(i), encode(all_data[i])) for i in sorted(all_data)
-                )
+            "POST", url, encoded_data
             ]))
 
-    return hmac(APP_SECRET, message, sha1).digest().encode('base64')[:-1]
+    return message
+
+def sign_request(signature_string):
+    return hmac(encode(CONSUMER_SECRET)+"&", signature_string, sha1).digest().encode('base64')[:-1]
+
+def build_header_string(header_data):
+    header_string = "OAuth "
+    encoded_values = []
+    for key,value in header_data.items():
+        encoded_values.append('{0}="{1}"'.format(encode(key), encode(value)))
+
+    header_string += ", ".join(encoded_values)
+    return header_string
 
 # ===========
 # Web Handler
@@ -59,9 +81,10 @@ class Twitter(webapp2.RequestHandler):
         if _is(action, "login"): #Get request token
             # Build the request
             callback_url = self.uri_for("twitter_actions", action="req_token_callback", _full=True)
+            
 
             header_data = {
-                "oauth_consumer_key" : "",
+                "oauth_consumer_key" : CONSUMER_KEY,
                 "oauth_nonce" : getrandbits(64),
                 "oauth_signature_method" : "HMAC-SHA1",
                 "oauth_timestamp" : int(time()),
@@ -72,11 +95,35 @@ class Twitter(webapp2.RequestHandler):
                 "oauth_callback" : callback_url
             }
 
-            msg = sign_request(header_data, post_data, REQUEST_TOKEN_URL)
-            # self.response.write(msg)
+            signature_string = build_signature_string(header_data, post_data, REQUEST_TOKEN_URL)
+            signature = sign_request(signature_string)
+            
+            header_data["oauth_signature_method"] = signature
+            header_data["oauth_callback"] = encode(callback_url)
 
-            header_data["oauth_signature"] = sign_request(header_data, post_data, REQUEST_TOKEN_URL)
+            header_string = build_header_string(header_data)
+
+            # debug data
+            self.response.write("signature_string: %s <br /><br /> " % signature_string)
+            self.response.write("signature: %s <br /><br /> " % signature)
+            self.response.write("header_string: %s <br /><br /> " % header_string)
+
+
+            for key,value in post_data.iteritems():
+                post_data[key] = encode(value)
 
             # Post request
-            result = web_post(REQUEST_TOKEN_URL, post_data, header_data)
-            self.response.write("{0}<br />{1}".format(result.status_code, result.content))
+            result = web_post(url=REQUEST_TOKEN_URL, params=post_data, headers={"Authorization" : header_string})
+            self.response.write("<br />status: {0}<br />message: {1}".format(result.status_code, result.content))
+
+    def post(self, action=None):
+        self.response.write("POST lands here <br />")
+        self.response.write("Params: <br />")
+        for key,value in self.request.params.iteritems():
+            self.response.write(key + ":" +value)
+            self.response.write("<br />")
+        self.response.write("<br />")
+        self.response.write("Headers: <br />")
+        for key,value in self.request.headers.iteritems():
+            self.response.write(key + ":" +value)
+            self.response.write("<br />")
