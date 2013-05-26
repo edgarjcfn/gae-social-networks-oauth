@@ -5,9 +5,11 @@ from hmac import new as hmac
 from random import getrandbits
 from time import time
 from urllib import urlencode, quote as urlquote
+import cgi
 
 from google.appengine.api.urlfetch import fetch as webfetch, GET, POST
 
+AUTHENTICATE_URL = 'https://api.twitter.com/oauth/authenticate'
 REQUEST_TOKEN_URL = 'https://api.twitter.com/oauth/request_token'
 # REQUEST_TOKEN_URL = 'http://localhost:8080/auth/twitter'
 
@@ -78,8 +80,8 @@ class Twitter(webapp2.RequestHandler):
     def get(self, action=None):
         if _is(action, "login"): #Get request token
             # Build the request
-            # callback_url = self.uri_for("twitter_actions", action="req_token_callback", _full=True)
-            callback_url = "http://127.0.0.1:8080/auth/twitter/callback"
+            callback_url = self.uri_for("twitter_actions", action="req_token_callback", _full=True)
+            # callback_url = "http://127.0.0.1:8080/auth/twitter/callback"
             
 
             header_data = {
@@ -113,7 +115,9 @@ class Twitter(webapp2.RequestHandler):
 
             # Post request
             result = web_post(url=REQUEST_TOKEN_URL, params={}, headers={"Authorization" : header_string})
-            self.response.write("<br />status: {0}<br />message: {1}".format(result.status_code, result.content))
+            if (result.status_code == 200):
+                result_params = cgi.parse_qs(result.content)
+                self.redirect("{0}?{1}={2}".format(AUTHENTICATE_URL, "oauth_token", result_params["oauth_token"][0]))
 
     def post(self, action=None):
         self.response.write("<br /> ======================= <br />")
