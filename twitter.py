@@ -7,7 +7,7 @@ from time import time
 from urllib import urlencode, quote as urlquote
 import cgi
 
-from google.appengine.api.urlfetch import fetch as webfetch, GET, POST
+from google.appengine.api.urlfetch import fetch as urlfetch, GET, POST
 
 AUTHENTICATE_URL = 'https://api.twitter.com/oauth/authenticate'
 REQUEST_TOKEN_URL = 'https://api.twitter.com/oauth/request_token'
@@ -26,11 +26,11 @@ def web_get(url, params=None):
             params_str += "{0}={1}".format(key, value)
         url = "{0}?{1}".format(url, params_str)
 
-    return webfetch(url, None, GET)
+    return urlfetch(url, None, GET)
 
 def web_post(url, params=None, headers={}):
     params = urllib.urlencode(params)
-    return webfetch(url=url, payload=params, method=POST, headers=headers, validate_certificate=False)
+    return urlfetch(url=url, payload=params, method=POST, headers=headers, validate_certificate=False)
 
 
 def _is(action, expected):
@@ -77,9 +77,9 @@ def build_header_string(header_data):
 # ===========
 class Twitter(webapp2.RequestHandler):
 
-    def obtain_request_token(self):
+    def login(self):
             # Build the request
-            callback_url = self.uri_for("twitter_actions", action="req_token_callback", _full=True)
+            callback_url = self.uri_for("twitter_actions", action="obtain_access_token", _full=True)
             # callback_url = "http://127.0.0.1:8080/auth/twitter/callback"
             
 
@@ -103,15 +103,6 @@ class Twitter(webapp2.RequestHandler):
 
             header_string = build_header_string(header_data)
 
-            # debug data
-            self.response.write("signature_string: %s <br /><br /> " % signature_string)
-            self.response.write("signature: %s <br /><br /> " % signature)
-            self.response.write("header_string: %s <br /><br /> " % header_string)
-
-
-            for key,value in post_data.iteritems():
-                post_data[key] = encode(value)
-
             # Post request
             result = web_post(url=REQUEST_TOKEN_URL, params={}, headers={"Authorization" : header_string})
             if (result.status_code == 200):
@@ -124,10 +115,13 @@ class Twitter(webapp2.RequestHandler):
 
 
     def get(self, action=None):
-        if _is(action, "login"): 
-            self.obtain_request_token()
-        elif _is(action, "req_token_callback"):
-            self.obtain_access_token()
+        if action != "" and action != "/":
+            try:
+                function = getattr(self, action)
+                function()
+            except AttributeError:
+                self.response.write("method {0} was not found".format(action))
+
 
     def post(self, action=None):
         self.response.write("<br /> ======================= <br />")
