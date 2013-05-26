@@ -77,8 +77,7 @@ def build_header_string(header_data):
 # ===========
 class Twitter(webapp2.RequestHandler):
 
-    def get(self, action=None):
-        if _is(action, "login"): #Get request token
+    def obtain_request_token(self):
             # Build the request
             callback_url = self.uri_for("twitter_actions", action="req_token_callback", _full=True)
             # callback_url = "http://127.0.0.1:8080/auth/twitter/callback"
@@ -118,6 +117,17 @@ class Twitter(webapp2.RequestHandler):
             if (result.status_code == 200):
                 result_params = cgi.parse_qs(result.content)
                 self.redirect("{0}?{1}={2}".format(AUTHENTICATE_URL, "oauth_token", result_params["oauth_token"][0]))
+
+    def obtain_access_token(self):
+        for key,value in self.request.params.iteritems():
+            self.response.write("{0} = {1} <br />".format(key,value))
+
+
+    def get(self, action=None):
+        if _is(action, "login"): 
+            self.obtain_request_token()
+        elif _is(action, "req_token_callback"):
+            self.obtain_access_token()
 
     def post(self, action=None):
         self.response.write("<br /> ======================= <br />")
