@@ -1,24 +1,17 @@
 import webapp2
 import urllib
+
 from hashlib import sha1
 from hmac import new as hmac
 from random import getrandbits
 from time import time
 from urllib import urlencode, quote as urlquote
 import cgi
-
 from google.appengine.api.urlfetch import fetch as urlfetch, GET, POST
 
-AUTHENTICATE_URL = 'https://api.twitter.com/oauth/authenticate'
-REQUEST_TOKEN_URL = 'https://api.twitter.com/oauth/request_token'
-# REQUEST_TOKEN_URL = 'http://localhost:8080/auth/twitter'
-
-CONSUMER_SECRET = "VCOp4U4kKtd1EovxksktiPnfaYpSPhogpQTshHDYn4"
-CONSUMER_KEY = "wxLnvuFqFfrqaYfVx3RKdg"
-
-# ==============
-# Helper methods
-# ==============
+# ==================
+# Helper Methods
+# ==================
 def web_get(url, params=None):
     if params is not None:
         params_str = ""
@@ -31,10 +24,6 @@ def web_get(url, params=None):
 def web_post(url, params=None, headers={}):
     params = urllib.urlencode(params)
     return urlfetch(url=url, payload=params, method=POST, headers=headers, validate_certificate=False)
-
-
-def _is(action, expected):
-    return action.lower() == expected
 
 def encode(text):
     return urlquote(str(text), '')
@@ -60,8 +49,8 @@ def build_signature_string(header_data, post_data, url):
 
     return message
 
-def sign_request(signature_string):
-    return hmac(encode(CONSUMER_SECRET)+"&", signature_string, sha1).digest().encode('base64')[:-1]
+def sign_request(signature_string, consumer_secret):
+    return hmac(encode(consumer_secret)+"&", signature_string, sha1).digest().encode('base64')[:-1]
 
 def build_header_string(header_data):
     header_string = "OAuth "
@@ -72,42 +61,54 @@ def build_header_string(header_data):
     header_string += ", ".join(encoded_values)
     return header_string
 
-# ===========
-# Web Handler
-# ===========
-class Twitter(webapp2.RequestHandler):
-
-    def login(self):
-            # Build the request
-            callback_url = self.uri_for("twitter_actions", action="obtain_access_token", _full=True)
-            # callback_url = "http://127.0.0.1:8080/auth/twitter/callback"
-            
-
+def create_authorization_header(post_data, extra_data, config):
             header_data = {
-                "oauth_consumer_key" : CONSUMER_KEY,
+                "oauth_consumer_key" : config['consumer_key'],
                 "oauth_nonce" : getrandbits(64),
                 "oauth_signature_method" : "HMAC-SHA1",
                 "oauth_timestamp" : int(time()),
                 "oauth_version" : "1.0"
             }
 
+            signature_string = build_signature_string(header_data, post_data, config['request_token_url'])
+            signature = sign_request(signature_string, config['consumer_secret'])
+            
+            header_data["oauth_signature"] = signature
+            
+            for key,value in extra_data.iteritems():
+                header_data[key] = value
+
+            return build_header_string(header_data)
+
+# ===========
+# Web Handler
+# ===========
+class Twitter(webapp2.RequestHandler):
+
+    config = {
+        'authenticate_url' : 'https://api.twitter.com/oauth/authenticate',
+        'request_token_url' : 'https://api.twitter.com/oauth/request_token',
+        'consumer_secret' : "VCOp4U4kKtd1EovxksktiPnfaYpSPhogpQTshHDYn4",
+        'consumer_key' : "wxLnvuFqFfrqaYfVx3RKdg"
+    }
+
+    def login(self):
+            # Build the request
+            callback_url = self.uri_for("twitter_actions", action="obtain_access_token", _full=True)
+            
             post_data = {
                 "oauth_callback" : callback_url
             }
 
-            signature_string = build_signature_string(header_data, post_data, REQUEST_TOKEN_URL)
-            signature = sign_request(signature_string)
-            
-            header_data["oauth_signature"] = signature
-            header_data["oauth_callback"] = callback_url
-
-            header_string = build_header_string(header_data)
+            headers = {
+                "Authorization" : create_authorization_header(post_data, post_data, self.config)   
+            }
 
             # Post request
-            result = web_post(url=REQUEST_TOKEN_URL, params={}, headers={"Authorization" : header_string})
+            result = web_post(url=self.config['request_token_url'], params={}, headers=headers)
             if (result.status_code == 200):
                 result_params = cgi.parse_qs(result.content)
-                self.redirect("{0}?{1}={2}".format(AUTHENTICATE_URL, "oauth_token", result_params["oauth_token"][0]))
+                self.redirect("{0}?{1}={2}".format(self.config['authenticate_url'], "oauth_token", result_params["oauth_token"][0]))
 
     def obtain_access_token(self):
         for key,value in self.request.params.iteritems():
