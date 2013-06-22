@@ -13,11 +13,6 @@ from webutil import web_get,web_post,encode,to_querystring
 # Helper Methods
 # ==================
 
-# def action(func):
-#     """ Attribute: marks a function as a web method """
-#     func.is_action = True
-#     return func
-
 def build_signature_string(header_data, post_data, url):
     """ Builds the string that will be hashed in order to sign the request """
     all_data = {}
@@ -68,11 +63,11 @@ def create_authorization_header(post_data, header_data, extra_data, config):
         header_data[key] = value
     return build_header_string(header_data)
 
+# ==================
+# Web Handler
+# ==================
 class OAuthHandler(webapp2.RequestHandler):
 
-    ##################
-    # Web Actions
-    ##################
     def login(self):
         # Build the request
         post_data = {
@@ -89,7 +84,7 @@ class OAuthHandler(webapp2.RequestHandler):
             result_params = cgi.parse_qs(result.content)
             self.redirect("{0}?{1}={2}".format(self.config['authenticate_url'], "oauth_token", result_params["oauth_token"][0]))
 
-    def obtain_access_token(self):
+    def success(self):
         for key,value in self.request.params.iteritems():
             self.response.write("{0} = {1} <br />".format(key,value))
 
@@ -101,18 +96,3 @@ class OAuthHandler(webapp2.RequestHandler):
                 function()
             except AttributeError:
                 self.response.write("method {0} was not found".format(action))
-
-
-    def post(self, action=None):
-        self.response.write("<br /> ======================= <br />")
-        self.response.write("POST lands here <br />")
-        self.response.write("======================= <br />")
-        self.response.write("Params: <br />")
-        for key,value in self.request.params.iteritems():
-            self.response.write(key + "=" +value)
-            self.response.write("<br />")
-        self.response.write("<br />")
-        self.response.write("Headers: <br />")
-        for key,value in self.request.headers.iteritems():
-            self.response.write(key + ":" +value)
-            self.response.write("<br />")

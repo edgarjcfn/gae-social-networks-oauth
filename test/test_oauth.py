@@ -1,5 +1,6 @@
 import unittest
 
+
 class OAuthTests(unittest.TestCase):
 
     def test_build_signature_string(self):

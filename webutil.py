@@ -3,6 +3,7 @@ import cgi
 
 from urllib import urlencode, quote as urlquote
 from google.appengine.api.urlfetch import fetch as urlfetch, GET, POST
+from django.utils import simplejson as json
 
 
 def web_get(url, params=None):
@@ -31,4 +32,21 @@ def to_querystring(params):
     return '&'.join(
         '{0}={1}'.format(encode(i), encode(params[i])) for i in sorted(params)
         )
+
+def to_dictionary(querystring):
+    """ Breaks a querystring into key-value pairs """
+    result = {}
+    for kvpair in querystring.split('&'):
+        key,value = kvpair.split('=')
+        result[key] = value
+    return result
+
+def read_config(path):
+    """ Reads a JSON Configuration file""" 
+    json_config = json.loads(open(path).read())
+    result = {}
+    for key,value in json_config.iteritems():
+        result[key] = value.encode('ascii','ignore')
+    return result
+
 
