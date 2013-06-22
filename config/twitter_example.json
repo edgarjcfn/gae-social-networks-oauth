@@ -1,0 +1,6 @@
+{
+    "authenticate_url" : "https://api.twitter.com/oauth/authenticate",
+    "request_token_url" : "https://api.twitter.com/oauth/request_token",
+    "consumer_secret" : "YOUR SECRET HERE",
+    "consumer_key" : "YOUR KEY HERE"
+}

@@ -1,0 +1,6 @@
+{
+    "authenticate_url" : "https://www.facebook.com/dialog/oauth?client_id={0}&redirect_uri={1}",
+    "request_token_url"  : "https://graph.facebook.com/oauth/access_token?client_id={0}&redirect_uri={1}&client_secret={2}&code={3}",
+    "consumer_secret" : "YOUR SECRET HERE",
+    "consumer_key" : "YOUR APP ID HERE"
+}
